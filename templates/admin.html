@@ -1,0 +1,276 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+    <meta charset="UTF-8">
+    <title>Panel Administratora</title>
+    <link rel="stylesheet" href="/static/styles.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+</head>
+<body>
+    <nav class="navbar admin-navbar">
+        <div class="nav-left">
+            <span class="nav-brand">Panel Administratora</span>
+        </div>
+        <div class="nav-right">
+            <a href="/" class="nav-btn btn-info">
+                <i class="fas fa-gamepad"></i> Powrót do Gry
+            </a>
+            <button onclick="handleLogout()" class="nav-btn btn-danger">
+                <i class="fas fa-sign-out-alt"></i> Wyloguj
+            </button>
+        </div>
+    </nav>
+
+    <div class="container">
+        <div class="admin-panel-extended">
+            <h2>Zarządzanie Użytkownikami</h2>
+            
+            <div class="admin-controls">
+                <div class="control-group">
+                    <label>Wybierz użytkownika:</label>
+                    <select id="userSelect" onchange="updateSelectedUserInfo()">
+                        <option value="">-- Ładowanie listy... --</option>
+                    </select>
+                </div>
+
+                <div class="user-details-card" id="userDetails" style="display:none;">
+                    <h3>Wybrany: <span id="selectedUsername" style="color: #f1c40f;">-</span></h3>
+                    <p>Aktualne saldo: <span id="selectedBalance">-</span> PLN</p>
+                    <p>ID: <span id="selectedId">-</span></p>
+                </div>
+
+                <div class="control-group actions">
+                    <label>Operacja na saldzie:</label>
+                    <div class="input-group">
+                        <input type="number" id="adminAmount" placeholder="Kwota" min="0">
+                    </div>
+                    
+                    <div class="buttons-row">
+                        <button class="btn-action btn-success" onclick="modifyFunds('add')">
+                            <i class="fas fa-plus"></i> Dodaj
+                        </button>
+                        <button class="btn-action btn-warning" onclick="modifyFunds('remove')">
+                            <i class="fas fa-minus"></i> Odejmij
+                        </button>
+                        <button class="btn-action btn-info" onclick="modifyFunds('set')">
+                            <i class="fas fa-equals"></i> Ustaw
+                        </button>
+                    </div>
+                </div>
+            </div>
+            
+            <div id="admin-message" class="message-box"></div>
+            
+            <div class="history-section" style="margin-top: 30px;">
+                <h2 style="text-align: center; color: #ecf0f1; border-bottom: 1px solid #7f8c8d; padding-bottom: 15px;">
+                    <i class="fas fa-history"></i> Historia Losowań
+                </h2>
+                
+                <div style="text-align: center; margin: 20px 0;">
+                    <button class="btn-action btn-info" onclick="loadHistory()" style="padding: 12px 30px; font-size: 16px;">
+                        <i class="fas fa-eye"></i> Podgląd Wyników
+                    </button>
+                    <label style="margin-left: 15px; color: #bdc3c7;">Limit:</label>
+                    <select id="historyLimit" style="padding: 8px; border-radius: 4px; margin-left: 5px;">
+                        <option value="50">50 ostatnich</option>
+                        <option value="100" selected>100 ostatnich</option>
+                        <option value="200">200 ostatnich</option>
+                        <option value="500">500 ostatnich</option>
+                    </select>
+                </div>
+                
+                <div id="history-stats" class="stats-box" style="display: none;"></div>
+                <div id="history-container" class="history-logs" style="display: none;"></div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let allUsers = [];
+        let authToken = localStorage.getItem('authToken');
+
+        async function loadUsers() {
+            if (!authToken) {
+                alert("Musisz być zalogowany!");
+                window.location.href = "/";
+                return;
+            }
+            
+            try {
+                const res = await fetch("/api/users", {
+                    headers: {"Authorization": `Bearer ${authToken}`}
+                });
+                
+                if(!res.ok) {
+                    if(res.status === 401) {
+                        alert("Sesja wygasła. Zaloguj się ponownie.");
+                    } else if(res.status === 403) {
+                        alert("Brak uprawnień administratora!");
+                    }
+                    window.location.href = "/";
+                    return;
+                }
+                
+                allUsers = await res.json();
+                
+                const select = document.getElementById("userSelect");
+                select.innerHTML = '<option value="">-- Wybierz gracza --</option>';
+                
+                allUsers.forEach(u => {
+                    const opt = document.createElement("option");
+                    opt.value = u.id;
+                    opt.text = `${u.username} (ID: ${u.id}) - ${u.balance.toFixed(2)} PLN`;
+                    select.appendChild(opt);
+                });
+            } catch(e) {
+                alert("Błąd: " + e.message);
+                window.location.href = "/";
+            }
+        }
+
+        function updateSelectedUserInfo() {
+            const id = parseInt(document.getElementById("userSelect").value);
+            const user = allUsers.find(u => u.id === id);
+            const details = document.getElementById("userDetails");
+            
+            if(user) {
+                details.style.display = "block";
+                document.getElementById("selectedUsername").innerText = user.username;
+                document.getElementById("selectedBalance").innerText = user.balance.toFixed(2);
+                document.getElementById("selectedId").innerText = user.id;
+            } else {
+                details.style.display = "none";
+            }
+        }
+
+        async function modifyFunds(operation) {
+            const userId = document.getElementById("userSelect").value;
+            const amount = parseFloat(document.getElementById("adminAmount").value);
+            const msgBox = document.getElementById("admin-message");
+
+            if(!userId || isNaN(amount)) {
+                msgBox.innerText = "Wybierz usera i podaj kwotę!";
+                msgBox.style.color = "red";
+                return;
+            }
+
+            try {
+                const res = await fetch("/api/admin/funds", {
+                    method: "POST",
+                    headers: {
+                        "Content-Type": "application/json",
+                        "Authorization": `Bearer ${authToken}`
+                    },
+                    body: JSON.stringify({
+                        user_id: parseInt(userId),
+                        amount: amount,
+                        operation: operation
+                    })
+                });
+                
+                const data = await res.json();
+                if(res.ok) {
+                    msgBox.innerText = `Sukces! Nowe saldo ${data.username}: ${data.new_balance.toFixed(2)} PLN`;
+                    msgBox.style.color = "#2ecc71";
+                    loadUsers().then(() => {
+                        document.getElementById("userSelect").value = userId;
+                        updateSelectedUserInfo();
+                    });
+                } else {
+                    throw new Error(data.detail);
+                }
+            } catch(e) {
+                msgBox.innerText = "Błąd: " + e.message;
+                msgBox.style.color = "red";
+            }
+        }
+
+        async function loadHistory() {
+            const limit = document.getElementById('historyLimit').value;
+            const statsBox = document.getElementById('history-stats');
+            const container = document.getElementById('history-container');
+            
+            try {
+                const res = await fetch(`/api/admin/history?limit=${limit}`, {
+                    headers: {"Authorization": `Bearer ${authToken}`}
+                });
+                
+                if(!res.ok) {
+                    if(res.status === 403) {
+                        alert('Brak uprawnień administratora!');
+                    } else {
+                        throw new Error('Błąd pobierania danych');
+                    }
+                    return;
+                }
+                
+                const data = await res.json();
+                
+                statsBox.style.display = 'block';
+                statsBox.innerHTML = `
+                    <h3 style="margin-top: 0; color: #f1c40f;"><i class="fas fa-chart-bar"></i> Statystyki</h3>
+                    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 15px; margin: 15px 0;">
+                        <div class="stat-card">
+                            <div class="stat-value">${data.total_spins}</div>
+                            <div class="stat-label">Łącznie losowań</div>
+                        </div>
+                        <div class="stat-card" style="background: rgba(231, 76, 60, 0.2); border-left: 4px solid #e74c3c;">
+                            <div class="stat-value">${data.statistics.red || 0}</div>
+                            <div class="stat-label">Czerwone</div>
+                        </div>
+                        <div class="stat-card" style="background: rgba(44, 62, 80, 0.2); border-left: 4px solid #34495e;">
+                            <div class="stat-value">${data.statistics.black || 0}</div>
+                            <div class="stat-label">Czarne</div>
+                        </div>
+                        <div class="stat-card" style="background: rgba(39, 174, 96, 0.2); border-left: 4px solid #27ae60;">
+                            <div class="stat-value">${data.statistics.green || 0}</div>
+                            <div class="stat-label">Zielone</div>
+                        </div>
+                    </div>
+                `;
+                
+                container.style.display = 'block';
+                container.innerHTML = '<h3 style="color: #ecf0f1; margin-bottom: 10px;"><i class="fas fa-list"></i> Szczegółowa historia (ostatnie ' + limit + ')</h3>';
+                
+                const table = document.createElement('div');
+                table.className = 'log-table';
+                table.innerHTML = `
+                    <div class="log-header">
+                        <span>ID</span>
+                        <span>Numer</span>
+                        <span>Kolor</span>
+                        <span>Data i czas</span>
+                    </div>
+                `;
+                
+                data.history.forEach(item => {
+                    const emoji = item.color === 'red' ? '🔴' : item.color === 'black' ? '⚫' : '🟢';
+                    const colorClass = item.color === 'red' ? 'log-red' : item.color === 'black' ? 'log-black' : 'log-green';
+                    
+                    const row = document.createElement('div');
+                    row.className = `log-row ${colorClass}`;
+                    row.innerHTML = `
+                        <span>#${item.id}</span>
+                        <span style="font-weight: bold; font-size: 18px;">${emoji} ${item.number}</span>
+                        <span>${item.color.toUpperCase()}</span>
+                        <span>${item.timestamp}</span>
+                    `;
+                    table.appendChild(row);
+                });
+                
+                container.appendChild(table);
+                
+            } catch(e) {
+                alert('Błąd: ' + e.message);
+            }
+        }
+
+        function handleLogout() {
+            localStorage.removeItem('authToken');
+            window.location.href = "/";
+        }
+
+        window.onload = loadUsers;
+    </script>
+</body>
+</html>

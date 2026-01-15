@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+    <meta charset="UTF-8">
+    <title>Kasyno Ruletka</title>
+    <link rel="stylesheet" href="/static/styles.css?v=2.1">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+</head>
+<body>
+    <nav id="navbar" class="navbar" style="display: none;">
+        <div class="nav-left">
+            <span class="nav-brand">Ruletka</span>
+            <span id="server-clock" class="server-clock-navbar">--:--:--</span>
+        </div>
+        <div class="nav-right">
+            <span class="nav-item">👤 <span id="displayUsername">Player</span></span>
+            <span class="nav-item">💰 <span id="displayBalance">0</span> PLN</span>
+            
+            <a href="/admin" id="navAdminBtn" class="nav-btn btn-warning" style="display: none;">
+                <i class="fas fa-tools"></i> Panel Admina
+            </a>
+            
+            <button onclick="handleLogout()" class="nav-btn btn-danger">
+                <i class="fas fa-sign-out-alt"></i> Wyloguj
+            </button>
+        </div>
+    </nav>
+
+    <div class="container main-content">
+        <div id="auth-section">
+            <h1>Witaj w Kasynie!</h1>
+            <div class="auth-box">
+                <h2>Logowanie</h2>
+                <input type="text" id="loginUsername" placeholder="Użytkownik">
+                <input type="password" id="loginPassword" placeholder="Hasło">
+                <button onclick="handleLogin()">Wejdź</button>
+            </div>
+            <div class="auth-box">
+                <h2>Rejestracja</h2>
+                <input type="text" id="regUsername" placeholder="Użytkownik">
+                <input type="password" id="regPassword" placeholder="Hasło">
+                <button onclick="handleRegister()">Załóż konto</button>
+            </div>
+        </div>
+
+        <div id="game-section" style="display: none;">
+            <div id="status-bar">
+                <span id="status">Czekam...</span> 
+                <span id="timer-container">| Czas: <span id="timer" style="font-weight: bold;">0</span>s</span>
+            </div>
+            
+            <div class="wheel-result" id="last-result">?</div>
+            
+            <div class="history-container">
+                <div id="history-list" class="history-list"></div>
+            </div>
+
+            <div class="betting-table">
+                <div id="table-overlay" class="disabled-overlay" style="display: none;">LOSOWANIE...</div>
+                
+                <div class="bet-controls">
+                    <label>Stawka: </label>
+                    <input type="number" id="betAmount" value="10" min="1"> PLN
+                    <span id="bet-message" style="color: #f1c40f; margin-left: 10px; font-weight: bold;"></span>
+                </div>
+
+                <div id="active-bets-container" style="margin-bottom: 15px; background: rgba(0,0,0,0.2); padding: 10px; border-radius: 5px; display: none;">
+                    <strong>Twoje zakłady w tej rundzie:</strong>
+                    <ul id="current-bets-list" style="list-style: none; padding: 0; margin: 5px 0;"></ul>
+                </div>
+
+                <div class="color-bets">
+                    <button class="bet-btn btn-green" onclick="placeBet('number', '0')">
+                        <span class="num">0</span><span class="multiplier">x36</span>
+                    </button>
+                    <button class="bet-btn btn-red" onclick="placeBet('color', 'red')">CZERWONY (x2)</button>
+                    <button class="bet-btn btn-black" onclick="placeBet('color', 'black')">CZARNY (x2)</button>
+                </div>
+
+                <div class="parity-bets">
+                    <button class="bet-btn btn-even" onclick="placeBet('parity', 'even')">PARZYSTE (x2)</button>
+                    <button class="bet-btn btn-odd" onclick="placeBet('parity', 'odd')">NIEPARZYSTE (x2)</button>
+                </div>
+
+                <div class="dozen-bets">
+                    <button class="bet-btn btn-dozen" onclick="placeBet('dozen', '1st 12')">1-12 (x3)</button>
+                    <button class="bet-btn btn-dozen" onclick="placeBet('dozen', '2nd 12')">13-24 (x3)</button>
+                    <button class="bet-btn btn-dozen" onclick="placeBet('dozen', '3rd 12')">25-36 (x3)</button>
+                </div>
+
+                <div class="numbers-section">
+                    <div id="numbers-container" class="numbers-container"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <script src="/static/script.js?v=2.1"></script>
+</body>
+</html>
